@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+void handle_gen(const char* pub_file, const char* priv_file) {
+    uint32_t e, n;
+    FILE *f_in = fopen(pub_file, "r");
+    if (!f_in) return;
+    fscanf(f_in, "%x %x", &e, &n);
+    fclose(f_in);
+
+    uint32_t phi = get_phi(n);
+    // uint32_t get_phi(uint32_t n) should be done
+    uint32_t d = modInverse(e, phi);
+    //uint32_t modInverse(uint32_t a, uint32_t b) should be done
+    FILE *f_out = fopen(priv_file, "w");
+    if (!f_out) return;
+    fprintf(f_out, "%08X %08X", d, n);
+    fclose(f_out);
+}
+
+void handle_crypt(const char* key_file, const char* in_file, const char* out_file) {
+    uint32_t key, n, data;
+    FILE *f_key = fopen(key_file, "r");
+    if (!f_key) return;
+    fscanf(f_key, "%x %x", &key, &n);
+    fclose(f_key);
+
+    FILE *f_in = fopen(in_file, "r");
+    FILE *f_out = fopen(out_file, "w");
+    if (!f_in || !f_out) return;
+
+    // Process every data block in the file
+    while (fscanf(f_in, "%x", &data) != EOF) {
+        uint32_t result = montgomary_exp(data, key, n);
+       // uint32_t montgomary_exp(uint32_t base, uint32_t exp, uint32_t N) should be done
+        fprintf(f_out, "%08X ", result);
+    }
+
+    fclose(f_in);
+    fclose(f_out);
+}
