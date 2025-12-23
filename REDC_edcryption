@@ -35,6 +35,10 @@ uint32_t decrypt_rsa_montgomery(uint32_t C, uint32_t d, uint32_t N) {
 }
 */
 uint32_t rsa_montgomery(uint32_t data, uint32_t key, uint32_t N, uint32_t invN, uint32_t R2) {
+/*uint32_t invN = get_invN(n);
+uint32_t R2 = get_R_squared(n); 
+rsa_montgomery(data, key, n, invN, R2)
+it should be written in main*/
     uint32_t d_bar = REDC((uint64_t)data * R2, N, invN);
     uint32_t res_bar = REDC((uint64_t)1 * R2, N, invN);
     while (key > 0) {
