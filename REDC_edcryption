@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-
+/*
 uint32_t encrypt_rsa_montgomery(uint32_t P, uint32_t e, uint32_t N) {
     uint32_t invN = get_invN(N);
     uint32_t R2 = get_R_squared(N);
@@ -30,6 +30,17 @@ uint32_t decrypt_rsa_montgomery(uint32_t C, uint32_t d, uint32_t N) {
         // C = C * C mod N (in Montgomery Space)
         C_bar = REDC((uint64_t)C_bar * C_bar, N, invN);
         d /= 2;
+    }
+    return REDC((uint64_t)res_bar, N, invN);
+}
+*/
+uint32_t rsa_montgomery(uint32_t data, uint32_t key, uint32_t N, uint32_t invN, uint32_t R2) {
+    uint32_t d_bar = REDC((uint64_t)data * R2, N, invN);
+    uint32_t res_bar = REDC((uint64_t)1 * R2, N, invN);
+    while (key > 0) {
+        if (key % 2 == 1) res_bar = REDC((uint64_t)res_bar * d_bar, N, invN);
+        d_bar = REDC((uint64_t)d_bar * d_bar, N, invN);
+        key /= 2;
     }
     return REDC((uint64_t)res_bar, N, invN);
 }
