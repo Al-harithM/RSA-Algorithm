@@ -13,6 +13,13 @@ uint32_t get_invN(uint32_t N) {
     return x;
 }
 
+uint32_t get_R_squared(uint32_t N) {
+    uint64_t R = (1ULL << 32);
+    uint32_t r_mod_n = (uint32_t)(R % N);
+    uint64_t r2 = (uint64_t)r_mod_n * r_mod_n;
+    return (uint32_t)(r2 % N);
+}
+
 uint32_t REDC(uint64_t T, uint32_t N, uint32_t invN) {
     uint64_t t1 = T;
     uint32_t m = (uint32_t)T * invN;
@@ -23,12 +30,6 @@ uint32_t REDC(uint64_t T, uint32_t N, uint32_t invN) {
     return x;
 }
 
-uint32_t get_R_squared(uint32_t N) {
-    uint64_t R = (1ULL << 32);
-    uint32_t r_mod_n = (uint32_t)(R % N);
-    uint64_t r2 = (uint64_t)r_mod_n * r_mod_n;
-    return (uint32_t)(r2 % N);
-}
 
 uint32_t rsa_montgomery(uint32_t data, uint32_t key, uint32_t N, uint32_t invN, uint32_t R2) {
     uint32_t d_bar = REDC((uint64_t)data * R2, N, invN);
@@ -82,10 +83,19 @@ uint32_t mod_inv(uint32_t a, uint64_t m) {
 // --- Main Execution ---
 int main(int argc, char *argv[]) {
     srand((unsigned int)time(NULL));
-    if (argc < 2) return 1;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage:\n %s g pub.txt priv.txt\n %s e/d key.txt in.txt out.txt\n", argv[0], argv[0]);
+        return 1;
+    }
+
     char mode = argv[1][0];
 
     if (mode == 'g') {
+        if (argc < 4) {
+            fprintf(stderr, "Error: Mode 'g' requires 3 arguments (mode, pub_file, priv_file)\n");
+            return 1;
+        }
         uint32_t e = 0x101, p, q, N;
         uint32_t min_p = 40000, max_p = 65000;
         
@@ -100,31 +110,70 @@ int main(int argc, char *argv[]) {
 
         FILE *f_pub = fopen(argv[2], "w");
         FILE *f_priv = fopen(argv[3], "w");
+
         if(f_pub && f_priv) {
             fprintf(f_pub, "%08X %08X", e, N);
             fprintf(f_priv, "%08X %08X", d, N);
-            fclose(f_pub); fclose(f_priv);
+            fclose(f_pub); 
+            fclose(f_priv);
+        } else {
+            fprintf(stderr, "Error: Could not open output files for writing keys.\n");
+            if (f_pub) fclose(f_pub);
+            if (f_priv) fclose(f_priv);
+            return 1;
         }
     } 
     else if (mode == 'e' || mode == 'd') {
+        if (argc < 5) {
+            fprintf(stderr, "Error: Mode '%c' requires 4 arguments (mode, key_file, in_file, out_file)\n", mode);
+            return 1;
+        }
+
         uint32_t key, n, data;
         FILE *f_key = fopen(argv[2], "r");
         FILE *f_in = fopen(argv[3], "r");
-        if (!f_key || !f_in) return 1;
 
-        if(fscanf(f_key, "%x %x", &key, &n) != 2) return 1;
-        if(fscanf(f_in, "%x", &data) != 1) return 1;
-        fclose(f_key); fclose(f_in);
+        if (!f_key) {
+            fprintf(stderr, "Error: Could not open key file: %s\n", argv[2]);
+            if (f_in) fclose(f_in);
+            return 1;
+        }
+        if (!f_in) {
+            fprintf(stderr, "Error: Could not open input file: %s\n", argv[3]);
+            if (f_key) fclose(f_key);
+            return 1;
+        }
+
+        if(fscanf(f_key, "%x %x", &key, &n) != 2) {
+            fprintf(stderr, "Error: Invalid key file format.\n");
+            fclose(f_key); fclose(f_in);
+            return 1;
+        }
+        fclose(f_key);
 
         uint32_t invN = get_invN(n);
         uint32_t R2 = get_R_squared(n);
-        uint32_t result = rsa_montgomery(data, key, n, invN, R2);
 
         FILE *f_out = fopen(argv[4], "w");
-        if(f_out) {
-            fprintf(f_out, "%08X", result);
-            fclose(f_out);
+        if(!f_out) {
+            fprintf(stderr, "Error: Could not open output file: %s\n", argv[4]);
+            fclose(f_in);
+            return 1;
         }
+
+        while (fscanf(f_in, "%x", &data) == 1) {
+            // Process the current block
+            uint32_t result = rsa_montgomery(data, key, n, invN, R2);
+            // Write result immediately followed by a space
+            fprintf(f_out, "%08X ", result);
+        }
+
+        fclose(f_in);
+        fclose(f_out);
+    }
+    else {
+        fprintf(stderr, "Error: Unknown mode '%c'. Use 'g', 'e', or 'd'.\n", mode);
+        return 1;
     }
     return 0;
 }
